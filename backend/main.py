@@ -2,11 +2,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from services.github_api import GitHubEngine
-from services.analyzer import BridgeAnalyzer # Add this import
-import json
+from services.analyzer import BridgeAnalyzer
+from services.ai_agent import GroqAnalyzer # Ensure this is correct
+import os
+
 
 app = FastAPI()
 engine = GitHubEngine()
+ai_engine = GroqAnalyzer()
 
 # Allow Next.js to talk to this backend
 app.add_middleware(
@@ -26,6 +29,11 @@ async def get_recommendations(lang: str = "python"):
     analyzer = BridgeAnalyzer(raw_issues)
     ranked_issues = analyzer.calculate_scores()
     return {"count": len(ranked_issues), "issues": ranked_issues}
+
+# Returns AI-Generated Insights for a given issue
+@app.get("/api/analyze")
+async def analyze_issue(title: str, body: str):
+    return ai_engine.analyze_issue(title, body)
 
 if __name__ == "__main__":
     import uvicorn
