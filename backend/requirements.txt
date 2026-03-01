@@ -1,1 +1,7 @@
 # Python libs (pandas, fastapi, uvicorn)
+fastapi
+uvicorn
+python-dotenv
+requests
+pandas
+groq
