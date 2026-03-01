@@ -1,7 +1,7 @@
 # Pandas & Ranking algorithms
 import pandas as pd
-from datetime import datetime
 import numpy as np
+from datetime import datetime
 
 class BridgeAnalyzer:
     def __init__(self, issues_data):
@@ -11,41 +11,33 @@ class BridgeAnalyzer:
         if self.df.empty:
             return []
 
-        # 1. Convert dates to 'days old'
+        # Convert dates
         self.df['created_at'] = pd.to_datetime(self.df['created_at'])
         now = datetime.now(self.df['created_at'].dt.tz)
         self.df['days_old'] = (now - self.df['created_at']).dt.days
 
-        # 2. Normalize Recency (0 to 1, where 1 is brand new)
-        # Using an exponential decay so very old issues drop off quickly
+        # 1. Scoring Logic
         self.df['recency_score'] = np.exp(-self.df['days_old'] / 30)
-
-        # 3. Social Proof (Proxy for repo quality)
-        # Note: If 'score' isn't in search results, we use GitHub's search relevance
-        self.df['relevance_score'] = self.df['score'] / self.df['score'].max()
-
-        # 4. Friction (Fewer comments = Higher score)
+        
+        # Handle cases where all 'score' values might be zero or missing
+        max_relevance = self.df['score'].max()
+        self.df['relevance_score'] = self.df['score'] / max_relevance if max_relevance > 0 else 0
+        
         self.df['friction_score'] = 1 / (self.df['comments'] + 1)
 
-        # 5. Final Weighted Bridge Score (Scale 0-100)
+        # 2. Final Score
         self.df['bridge_score'] = (
             (self.df['recency_score'] * 0.5) + 
             (self.df['relevance_score'] * 0.3) + 
             (self.df['friction_score'] * 0.2)
         ) * 100
-        # Handle edge cases for bridge_score
-        # 1. Replace Infinity with 100 (The best possible score)
-        self.df['bridge_score'] = self.df['bridge_score'].replace([np.inf, -np.inf], 100.0)
         
-        # 2. Replace NaN with 0.0 (The lowest possible score/Missing data)
-        self.df['bridge_score'] = self.df['bridge_score'].fillna(0.0)
-        
-        # 3. Clip values to ensure they stay between 0 and 100
-        self.df['bridge_score'] = self.df['bridge_score'].clip(0, 100)
-        # ------------------------------------
+        # 1. Convert any Infinity to 100
+        self.df = self.df.replace([np.inf, -np.inf], 100.0)
+        # 2. Fill all NaNs (Not a Number) with 0.0
+        self.df = self.df.fillna(0.0)
+        # 3. Ensure everything is a native Python float for JSON compatibility
+        self.df['bridge_score'] = self.df['bridge_score'].round(1).astype(float)
+        # --------------------------
 
-        # Round for clean UI
-        self.df['bridge_score'] = self.df['bridge_score'].round(1)
-
-        # Sort by score and return as list of dicts
         return self.df.sort_values(by='bridge_score', ascending=False).to_dict('records')

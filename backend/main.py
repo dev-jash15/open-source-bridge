@@ -20,7 +20,8 @@ app.add_middleware(
 )
 
 @app.get("/api/recommendations")
-async def get_recommendations(lang: str = "python"):
+# 'lang' is now a dynamic string from the frontend, defaulting to "python"
+async def get_recommendations(lang: str = "python"): 
     raw_issues = engine.fetch_issues(language=lang)
 
     if not raw_issues:
