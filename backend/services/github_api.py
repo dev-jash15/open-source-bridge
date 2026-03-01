@@ -19,16 +19,20 @@ class GitHubEngine:
         }
 
     def fetch_issues(self, language="python"):
-        # 1. Check Cache (Keep this part the same)
-        if os.path.exists(CACHE_FILE):
-            file_time = datetime.fromtimestamp(os.path.getmtime(CACHE_FILE))
+        # 1. Generate a dynamic cache path based on the language
+        # This ensures 'python' doesn't overwrite 'javascript'
+        clean_lang = language.lower().strip()
+        cache_path = f"data/cache_{clean_lang}.json"
+
+        # 2. Check if the specific language cache is fresh (1 hour)
+        if os.path.exists(cache_path):
+            file_time = datetime.fromtimestamp(os.path.getmtime(cache_path))
             if datetime.now() - file_time < timedelta(hours=1):
-                with open(CACHE_FILE, 'r') as f:
+                with open(cache_path, 'r') as f:
                     return json.load(f)
 
-        # 2. The Fully Qualified Query
-        # We need is:issue to satisfy the API, and is:public for safety
-        api_query = f'is:issue is:public state:open label:"good first issue" language:{language}'
+        # 3. If no fresh cache for this specific language, fetch from GitHub
+        api_query = f'is:issue is:public state:open label:"good first issue" language:{clean_lang}'
         
         url = "https://api.github.com/search/issues"
         params = {
@@ -43,15 +47,15 @@ class GitHubEngine:
         if response.status_code == 200:
             data = response.json().get("items", [])
             
+            # Save to the language-specific cache file
             os.makedirs("data", exist_ok=True)
-            with open(CACHE_FILE, 'w') as f:
+            with open(cache_path, 'w') as f:
                 json.dump(data, f)
             return data
         else:
-            # This is your safety net—always print the error body!
             print(f"GitHub API Error {response.status_code}: {response.text}")
             return []
-
+        
     def get_repo_stats(self, repo_full_name):
         """Proof of Technical Execution: Fetching extra data for our 'Bridge Score'"""
         url = f"https://api.github.com/repos/{repo_full_name}"
